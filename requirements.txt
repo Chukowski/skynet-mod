@@ -7,6 +7,7 @@ attrs==23.2.0
 certifi==2024.2.2
 click==8.1.7
 coloredlogs==15.0.1
+cryptography==42.0.2
 fastapi==0.109.2
 fireworks-ai==0.6.0
 frozenlist==1.4.1
@@ -20,6 +21,7 @@ prometheus-client==0.20.0
 prometheus-fastapi-instrumentator==7.0.0
 pydantic==2.6.1
 pydantic-core==2.16.2
+PyJWT[crypto]==2.8.0
 python-dotenv==1.0.1
 PyYAML==6.0.1
 redis==5.0.1
