@@ -4,6 +4,9 @@ services:
         environment:
             - BYPASS_AUTHORIZATION=true
             - REDIS_HOST=redis
+            - FIREWORKS_API_KEY=${FIREWORKS_API_KEY}
+            - WHISPER_LANGUAGE=${WHISPER_LANGUAGE:-es}
+            - ENABLED_MODULES=${ENABLED_MODULES:-streaming_whisper}
         platform: linux/amd64
         ports:
             - "8000:8000"

@@ -5,7 +5,7 @@ Skynet is an API server for AI services wrapping several apps and models.
 It is comprised of specialized modules which can be enabled or disabled as needed.
 
 - **Summary and Action Items** with vllm (or llama.cpp)
-- **Live Transcriptions** with Faster Whisper via websockets
+- **Live Transcriptions** with Fireworks.ai via websockets
 - 🚧 _More to follow_
 
 ## Requirements
@@ -37,11 +37,14 @@ poetry install
 > libraries, e.g. `export DYLD_LIBRARY_PATH=/Users/MyUser/ffmpeg/6.1.2/lib:$DYLD_LIBRARY_PATH`.
 
 ```bash
-mkdir -p "$HOME/models/streaming-whisper"
-export WHISPER_MODEL_NAME="tiny.en"
+# Set your Fireworks.ai API key
+export FIREWORKS_API_KEY="your-api-key-here"
+
+# Optional: Set the language for transcription (default is English)
+export WHISPER_LANGUAGE="en"
+
 export BYPASS_AUTHORIZATION="true"
 export ENABLED_MODULES="streaming_whisper"
-export WHISPER_MODEL_PATH="$HOME/models/streaming-whisper"
 
 poetry install
 ./run.sh

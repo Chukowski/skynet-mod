@@ -1,17 +1,22 @@
 import asyncio
 import base64
 import time
-from typing import List
+from typing import List, Optional
+from pydantic import BaseModel
 
 from skynet.env import whisper_return_transcribed_audio as return_audio
-
 from skynet.logs import get_logger
 from skynet.modules.monitoring import TRANSCRIBE_DURATION_METRIC
 from skynet.modules.stt.streaming_whisper.chunk import Chunk
+from skynet.modules.stt.streaming_whisper.fireworks_client import get_client
 from skynet.modules.stt.streaming_whisper.utils import utils
 
 log = get_logger(__name__)
 
+class WhisperResult(BaseModel):
+    text: str
+    segments: List[dict]
+    language: str
 
 class State:
     working_audio: bytes
@@ -22,6 +27,8 @@ class State:
     working_audio_starts_at: int
     chunk_duration: float
     last_received_chunk: int
+    fireworks_client: Optional[FireworksStreamingClient] = None
+    transcription_state: dict = {}
 
     def __init__(
         self,
@@ -38,18 +45,16 @@ class State:
         self.chunk_count = 0
         self.working_audio = b''
         self.lang = lang
-        self.long_silence = False
-        self.chunk_duration = 0.0
-        # silence count before starting to drop incoming silent chunks
-        self.silence_count_before_ignore = add_max_silent_chunks
+        self.add_max_silent_chunks = add_max_silent_chunks
         self.final_after_x_silent_chunks = final_after_x_silent_chunks
+        self.is_transcribing = False
+        self.last_received_chunk = utils.now()
         self.uuid = utils.Uuid7()
         self.transcription_id = str(self.uuid.get())
-        self.last_received_chunk = utils.now()
         self.is_transcribing = False
 
     def _extract_transcriptions(
-        self, last_pause: utils.CutMark, ts_result: utils.WhisperResult
+        self, last_pause: utils.CutMark, ts_result: WhisperResult
     ) -> List[utils.TranscriptionResponse]:
         if ts_result is None:
             return []
@@ -58,17 +63,17 @@ class State:
         interim = ''
         final_starts_at = None
         interim_starts_at = None
-        for word in ts_result.words:
-            space = ' ' if ' ' not in word.word else ''
+        for word in ts_result.segments:
+            space = ' ' if ' ' not in word['text'] else ''
             # search for final up to silence
-            if word.end < last_pause.end:
-                final_starts_at = word.start if final_starts_at is None else final_starts_at
-                final += word.word + space
+            if word['id'] < last_pause.end:
+                final_starts_at = word['id'] if final_starts_at is None else final_starts_at
+                final += word['text'] + space
                 log.debug(f'Participant {self.participant_id}: final is "{final}"')
             # consider everything else as interim
             else:
-                interim_starts_at = word.start if interim_starts_at is None else interim_starts_at
-                interim += word.word + space
+                interim_starts_at = word['id'] if interim_starts_at is None else interim_starts_at
+                interim += word['text'] + space
                 log.debug(f'Participant {self.participant_id}: interim is "{interim}"')
 
         if final.strip():
@@ -93,7 +98,7 @@ class State:
                 # return everything as interim if failed to slice and acquire cut mark
                 results.append(
                     self.get_response_payload(
-                        final + interim, self.working_audio_starts_at + int(ts_result.words[0].start * 1000)
+                        final + interim, self.working_audio_starts_at + int(ts_result.segments[0]['id'] * 1000)
                     )
                 )
                 return results
@@ -119,7 +124,7 @@ class State:
         ts_result = await self.do_transcription(self.working_audio, previous_tokens)
         if ts_result.text.strip():
             results = []
-            start_timestamp = int(ts_result.words[0].start * 1000) + self.working_audio_starts_at
+            start_timestamp = int(ts_result.segments[0]['id'] * 1000) + self.working_audio_starts_at
             final_audio = None
             if return_audio:
                 final_audio_length = utils.convert_bytes_to_seconds(self.working_audio)
@@ -130,7 +135,7 @@ class State:
                     start_timestamp,
                     final_audio,
                     True,
-                    probability=utils.get_phrase_prob(len(ts_result.words) - 1, ts_result.words),
+                    probability=utils.get_phrase_prob(len(ts_result.segments) - 1, ts_result.segments),
                 )
             )
         self.reset()
@@ -158,7 +163,7 @@ class State:
         return None
 
     def add_to_store(self, chunk: Chunk):
-        if not chunk.silent or (chunk.silent and self.silent_chunks < self.silence_count_before_ignore):
+        if not chunk.silent or (chunk.silent and self.silent_chunks < self.add_max_silent_chunks):
             self.working_audio += chunk.raw
             log.debug(
                 f'Participant {self.participant_id}: the audio buffer is '
@@ -226,20 +231,40 @@ class State:
         log.debug(f'Sliceable bytes: {sliceable_bytes}')
         return sliceable_bytes
 
-    async def do_transcription(self, audio: bytes, previous_tokens: list[int]) -> utils.WhisperResult | None:
+    async def do_transcription(self, audio: bytes, previous_tokens: list[int]) -> WhisperResult | None:
         self.is_transcribing = True
         start = time.perf_counter_ns()
-        loop = asyncio.get_running_loop()
-        log.debug(f'Participant {self.participant_id}: starting transcription of {len(audio)} bytes.')
+        
         try:
-            ts_result = await loop.run_in_executor(None, utils.transcribe, [audio], self.lang, previous_tokens)
-        except RuntimeError as e:
+            if not self.fireworks_client:
+                self.fireworks_client = get_client(self.lang)
+                await self.fireworks_client.connect()
+            
+            # Send audio chunk
+            await self.fireworks_client.send_audio(audio)
+            
+            # Get transcription result
+            result = await self.fireworks_client.receive_transcription()
+            
+            # Update transcription state
+            for segment in result.get('segments', []):
+                self.transcription_state[segment['id']] = segment['text']
+            
+            # Convert to WhisperResult format
+            whisper_result = WhisperResult({
+                'text': ' '.join(self.transcription_state.values()),
+                'segments': [{'id': k, 'text': v} for k, v in self.transcription_state.items()],
+                'language': self.lang
+            })
+            
+        except Exception as e:
             log.error(f'Participant {self.participant_id}: failed to transcribe {e}')
             self.is_transcribing = False
             return None
+            
         end = time.perf_counter_ns()
         processing_time = (end - start) / 1e6 / 1000
         TRANSCRIBE_DURATION_METRIC.observe(processing_time)
-        log.debug(ts_result)
+        log.debug(whisper_result)
         self.is_transcribing = False
-        return ts_result
+        return whisper_result
