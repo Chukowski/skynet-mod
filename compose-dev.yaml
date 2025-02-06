@@ -1,15 +1,15 @@
 services:
-    web:
-        build:  .
+    skynet:
+        build:
+            context: .
+            dockerfile: Dockerfile
         environment:
-            - BYPASS_AUTHORIZATION=true
-            - REDIS_HOST=redis
             - FIREWORKS_API_KEY=${FIREWORKS_API_KEY}
             - WHISPER_LANGUAGE=${WHISPER_LANGUAGE:-es}
-            - ENABLED_MODULES=${ENABLED_MODULES:-streaming_whisper}
-        platform: linux/amd64
+            - ENABLED_MODULES=streaming_whisper
+            - BYPASS_AUTHORIZATION=true
         ports:
-            - "8000:8000"
+            - "8001:8001"
         depends_on:
             - redis
     redis:
