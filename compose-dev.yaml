@@ -8,11 +8,23 @@ services:
             - WHISPER_LANGUAGE=${WHISPER_LANGUAGE:-es}
             - ENABLED_MODULES=streaming_whisper
             - BYPASS_AUTHORIZATION=true
+            - APP_PORT=8001
         ports:
             - "8001:8001"
+        networks:
+            - meet.jitsi
+            - web
         depends_on:
             - redis
     redis:
         image: redis:7.2.4
         ports:
             - "6379:6379"
+        networks:
+            - meet.jitsi
+
+networks:
+    meet.jitsi:
+        external: true
+    web:
+        external: true
