@@ -4,7 +4,6 @@ import time
 from typing import List, Optional
 from pydantic import BaseModel
 
-from skynet.env import whisper_return_transcribed_audio as return_audio
 from skynet.logs import get_logger
 from skynet.modules.monitoring import TRANSCRIBE_DURATION_METRIC
 from skynet.modules.stt.streaming_whisper.chunk import Chunk
@@ -246,14 +245,10 @@ class State:
             # Get transcription result
             result = await self.fireworks_client.receive_transcription()
             
-            # Update transcription state
-            for segment in result.get('segments', []):
-                self.transcription_state[segment['id']] = segment['text']
-            
             # Convert to WhisperResult format
             whisper_result = WhisperResult({
-                'text': ' '.join(self.transcription_state.values()),
-                'segments': [{'id': k, 'text': v} for k, v in self.transcription_state.items()],
+                'text': ' '.join([segment['text'] for segment in result['segments']]),
+                'segments': result['segments'],
                 'language': self.lang
             })
             

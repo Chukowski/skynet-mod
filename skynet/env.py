@@ -20,6 +20,14 @@ supported_modules = {'streaming_whisper'}
 enabled_modules = set(os.environ.get('ENABLED_MODULES', 'streaming_whisper').split(','))
 modules = supported_modules.intersection(enabled_modules)
 
+# WebSocket settings
+ws_max_size_bytes = int(os.environ.get('WS_MAX_SIZE_BYTES', 1000000))
+ws_max_queue_size = int(os.environ.get('WS_MAX_QUEUE_SIZE', 3000))
+ws_max_ping_interval = int(os.environ.get('WS_MAX_PING_INTERVAL', 30))
+ws_max_ping_timeout = int(os.environ.get('WS_MAX_PING_TIMEOUT', 30))
+whisper_max_connections = int(os.environ.get('WHISPER_MAX_CONNECTIONS', 10))
+whisper_flush_interval = int(os.environ.get('WHISPER_FLUSH_BUFFER_INTERVAL', 2000))
+
 # monitoring
 enable_metrics = tobool(os.environ.get('ENABLE_METRICS'))
 enable_haproxy_agent = tobool(os.environ.get('ENABLE_HAPROXY_AGENT'))

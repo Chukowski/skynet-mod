@@ -1,15 +1,11 @@
 import secrets
 import time
 from datetime import datetime, timezone
-from typing import List, Tuple, Optional
+from typing import List, Optional
 from pydantic import BaseModel
-from silero_vad import get_speech_timestamps, read_audio
-from uuid6 import UUID
 import base64
 import uuid
 
-import skynet.modules.stt.streaming_whisper.cfg as cfg
-from skynet.env import whisper_beam_size, whisper_min_probability
 from skynet.logs import get_logger
 
 log = get_logger(__name__)
