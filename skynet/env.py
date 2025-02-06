@@ -34,6 +34,11 @@ enable_haproxy_agent = tobool(os.environ.get('ENABLE_HAPROXY_AGENT'))
 
 # auth
 bypass_auth = tobool(os.environ.get('BYPASS_AUTHORIZATION'))
+asap_pub_keys_url = os.environ.get('ASAP_PUB_KEYS_URL', '')
+asap_pub_keys_folder = os.environ.get('ASAP_PUB_KEYS_FOLDER', '')
+asap_pub_keys_fallback_folder = os.environ.get('ASAP_PUB_KEYS_FALLBACK_FOLDER', '')
+asap_pub_keys_max_cache_size = int(os.environ.get('ASAP_PUB_KEYS_MAX_CACHE_SIZE', '1000'))
+asap_pub_keys_auds = os.environ.get('ASAP_PUB_KEYS_AUDS', '').split(',')
 
 # Fireworks.ai settings
 fireworks_api_key = os.environ.get('FIREWORKS_API_KEY')

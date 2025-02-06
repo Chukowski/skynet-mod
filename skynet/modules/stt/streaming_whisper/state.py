@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from skynet.logs import get_logger
 from skynet.modules.monitoring import TRANSCRIBE_DURATION_METRIC
 from skynet.modules.stt.streaming_whisper.chunk import Chunk
-from skynet.modules.stt.streaming_whisper.fireworks_client import get_client
+from skynet.modules.stt.streaming_whisper.fireworks_client import FireworksStreamingClient, get_client
 from skynet.modules.stt.streaming_whisper.utils import utils
 
 log = get_logger(__name__)
@@ -236,7 +236,7 @@ class State:
         
         try:
             if not self.fireworks_client:
-                self.fireworks_client = get_client(self.lang)
+                self.fireworks_client = await get_client(self.lang)
                 await self.fireworks_client.connect()
             
             # Send audio chunk
