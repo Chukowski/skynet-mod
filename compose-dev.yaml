@@ -10,8 +10,9 @@ services:
         platform: linux/amd64
         ports:
             - "8000:8000"
-            - "8001:8001"
-            - "8003:8003"
+        depends_on:
+            - redis
     redis:
-        image: "redis:alpine"
-        platform: linux/amd64
+        image: redis:7.2.4
+        ports:
+            - "6379:6379"
